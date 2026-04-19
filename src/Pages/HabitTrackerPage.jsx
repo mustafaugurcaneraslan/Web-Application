@@ -4,8 +4,14 @@ import HabitCard from '../Components/HabitCard'
 import HeroPanel from '../Components/HeroPanel'
 import ProfilePanel from '../Components/ProfilePanel'
 import SettingsPanel from '../Components/SettingsPanel'
-import { getHabitsStorageKey, LANGUAGE_STORAGE_KEY, SESSION_KEY, THEME_STORAGE_KEY } from '../Interfaces/storage'
-import { TEXT, WEEKDAY_LABELS, getLocale } from '../constants/i18n'
+import {
+  getHabitsStorageKey,
+  LANGUAGE_STORAGE_KEY,
+  SESSION_KEY,
+  THEME_STORAGE_KEY,
+  USERS_STORAGE_KEY,
+} from '../Interfaces/storage'
+import { LANGUAGE_OPTIONS, TEXT, WEEKDAY_LABELS, getLocale } from '../constants/i18n'
 import { WEEKDAY_OPTIONS } from '../constants/habits'
 import { ACCENT_COLORS, THEME_OPTIONS } from '../constants/themes'
 import { getLastNDays, getWeekKeys, toDateKey } from '../utils/date'
@@ -411,10 +417,27 @@ export default function HabitTrackerPage() {
     setAuthStatus({ type: '', message: '' })
   }
 
-  const loginUser = async (event) => {
+  const readStoredUsers = () => {
+    try {
+      const raw = localStorage.getItem(USERS_STORAGE_KEY)
+      if (!raw) {
+        return []
+      }
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  const writeStoredUsers = (users) => {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
+  }
+
+  const loginUser = (event) => {
     event.preventDefault()
     const payload = {
-      email: authEmail.trim(),
+      email: authEmail.trim().toLowerCase(),
       password: authPassword,
     }
 
@@ -426,26 +449,15 @@ export default function HabitTrackerPage() {
     setIsAuthLoading(true)
     setAuthStatus({ type: '', message: '' })
 
-    const API_BASE = import.meta.env.VITE_API_URL ?? ''
     try {
-      const response = await fetch(`${API_BASE}/api/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        const messageByCode = {
-          INVALID_CREDENTIALS: text.invalidCredentials,
-          MISSING_FIELDS: text.requiredFields,
-        }
-        setAuthStatus({ type: 'error', message: messageByCode[data.code] ?? text.invalidCredentials })
+      const users = readStoredUsers()
+      const user = users.find((item) => item.email === payload.email && item.password === payload.password)
+      if (!user) {
+        setAuthStatus({ type: 'error', message: text.invalidCredentials })
         return
       }
 
-      openUserSession(data.user)
+      openUserSession({ id: user.id, name: user.name, email: user.email })
     } catch {
       setAuthStatus({ type: 'error', message: text.invalidCredentials })
     } finally {
@@ -453,11 +465,11 @@ export default function HabitTrackerPage() {
     }
   }
 
-  const registerUser = async (event) => {
+  const registerUser = (event) => {
     event.preventDefault()
     const payload = {
       name: authName.trim(),
-      email: authEmail.trim(),
+      email: authEmail.trim().toLowerCase(),
       password: authPassword,
     }
 
@@ -469,28 +481,36 @@ export default function HabitTrackerPage() {
     setIsAuthLoading(true)
     setAuthStatus({ type: '', message: '' })
 
-    const API_BASE = import.meta.env.VITE_API_URL ?? ''
     try {
-      const response = await fetch(`${API_BASE}/api/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        const messageByCode = {
-          EMAIL_EXISTS: text.emailExists,
-          INVALID_EMAIL: text.invalidEmail,
-          WEAK_PASSWORD: text.weakPassword,
-          MISSING_FIELDS: text.requiredFields,
-        }
-        setAuthStatus({ type: 'error', message: messageByCode[data.code] ?? text.genericSignUpError })
+      const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)
+      if (!isEmailValid) {
+        setAuthStatus({ type: 'error', message: text.invalidEmail })
         return
       }
 
-      openUserSession(data.user)
+      if (payload.password.length < 4) {
+        setAuthStatus({ type: 'error', message: text.weakPassword })
+        return
+      }
+
+      const users = readStoredUsers()
+      const alreadyExists = users.some((item) => item.email === payload.email)
+      if (alreadyExists) {
+        setAuthStatus({ type: 'error', message: text.emailExists })
+        return
+      }
+
+      const nextUser = {
+        id: crypto.randomUUID(),
+        name: payload.name,
+        email: payload.email,
+        password: payload.password,
+        createdAt: new Date().toISOString(),
+      }
+
+      users.push(nextUser)
+      writeStoredUsers(users)
+      openUserSession({ id: nextUser.id, name: nextUser.name, email: nextUser.email })
     } catch {
       setAuthStatus({ type: 'error', message: text.genericSignUpError })
     } finally {
