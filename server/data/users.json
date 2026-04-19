@@ -1,0 +1,16 @@
+[
+  {
+    "id": "0a7b4e9f-6fe6-476e-89b7-216a5a8b2c3e",
+    "name": "Mustafa",
+    "email": "eraslanmustafaugurcan@gmail.com",
+    "passwordHash": "265ed8af86454a507faec9c7798d29bcb184fb28919b7f414ae2110c5ebae9c0",
+    "createdAt": "2026-03-21T19:02:27.979Z"
+  },
+  {
+    "id": "3229781e-8009-4ddd-95b1-c76fd83d2266",
+    "name": "Mustafa Eraslan",
+    "email": "ugurcan.eraslan@gmail.com",
+    "passwordHash": "25c6cd971322c0f1de4c1a23889f909231bcee0565c40d14aaf9c416d40d6730",
+    "createdAt": "2026-03-21T19:14:58.742Z"
+  }
+]
